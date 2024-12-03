@@ -15,7 +15,6 @@ class QuizScreen extends StatefulWidget {
 class _QuizScreenState extends State<QuizScreen> {
   int _currentIndex = 0;
   int _score = 0;
-  bool _isAnswered = false;
   Timer? _timer;
   int _timeLeft = 15;
 
@@ -25,69 +24,113 @@ class _QuizScreenState extends State<QuizScreen> {
     _startTimer();
   }
 
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
   void _startTimer() {
     _timeLeft = 15;
     _timer?.cancel();
     _timer = Timer.periodic(Duration(seconds: 1), (timer) {
-      setState(() {
-        if (_timeLeft > 0) {
+      if (_timeLeft > 0) {
+        setState(() {
           _timeLeft--;
-        } else {
-          _onTimeUp();
-        }
-      });
+        });
+      } else {
+        _onTimeUp();
+      }
     });
   }
 
   void _onTimeUp() {
-    _isAnswered = true;
     _timer?.cancel();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Time's Up! The correct answer is: ${widget.questions[_currentIndex].correctAnswer}"),
+        duration: Duration(seconds: 3),
+      ),
+    );
     _nextQuestion();
   }
 
-  void _answerQuestion(String answer) {
-    if (_isAnswered) return;
-    _isAnswered = true;
-    if (answer == widget.questions[_currentIndex].correctAnswer) {
-      _score++;
-    }
-    _nextQuestion();
+  void _answerQuestion(String selectedAnswer) {
+    final question = widget.questions[_currentIndex];
+    final isCorrect = selectedAnswer == question.correctAnswer;
+
+    setState(() {
+      if (isCorrect) {
+        _score++;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isCorrect ? 'Correct!' : 'Wrong! The correct answer is: ${question.correctAnswer}'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      _nextQuestion();
+    });
   }
 
   void _nextQuestion() {
-    Future.delayed(Duration(seconds: 2), () {
-      if (_currentIndex < widget.questions.length - 1) {
-        setState(() {
-          _currentIndex++;
-          _isAnswered = false;
-          _startTimer();
-        });
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SummaryScreen(score: _score, questions: widget.questions),
+    if (_currentIndex < widget.questions.length - 1) {
+      setState(() {
+        _currentIndex++;
+      });
+      _startTimer();
+    } else {
+      _timer?.cancel();
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SummaryScreen(
+            score: _score,
+            totalQuestions: widget.questions.length,
+            replayQuiz: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => QuizScreen(questions: widget.questions),
+                ),
+              );
+            },
           ),
-        );
-      }
-    });
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final question = widget.questions[_currentIndex];
     return Scaffold(
-      appBar: AppBar(title: Text("Quiz")),
-      body: Column(
-        children: [
-          Text("Time Left: $_timeLeft seconds"),
-          Text("Question ${_currentIndex + 1} of ${widget.questions.length}"),
-          Text(question.question),
-          ...question.options.map((option) => ElevatedButton(
+      appBar: AppBar(
+        title: Text('Quiz (${_currentIndex + 1}/${widget.questions.length})'),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Time Left: $_timeLeft seconds",
+              style: TextStyle(fontSize: 18.0, color: Colors.red),
+            ),
+            SizedBox(height: 16.0),
+            Text(
+              question.question,
+              style: TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 16.0),
+            ...question.options.map((option) {
+              return ElevatedButton(
                 onPressed: () => _answerQuestion(option),
                 child: Text(option),
-              )),
-        ],
+              );
+            }).toList(),
+          ],
+        ),
       ),
     );
   }

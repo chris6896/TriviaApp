@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../models/question.dart';
 import '../service/trivia_api_service.dart';
 import 'quiz_screen.dart';
 
